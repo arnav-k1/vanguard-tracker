@@ -20,27 +20,25 @@ const INTERVAL_OPTIONS = [
   { label: "Every 1 hour", value: 60 },
 ];
 
-async function fetchPrice(ticker) {
+async function fetchPriceFromFinnhub(ticker) {
   const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
-  if (!apiKey) throw new Error("Missing Finnhub API key — see setup instructions");
+  if (!apiKey) throw new Error("Missing Finnhub API key — check Vercel environment variables");
 
-  // Fetch quote and previous close in parallel
-  const [quoteRes, profileRes] = await Promise.all([
-    fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`),
-    fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`),
-  ]);
+  const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${apiKey}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
 
-  const quote = await quoteRes.json();
+  const quote = await res.json();
 
-  if (quote.c === 0 || quote.c === undefined) throw new Error("No price data returned");
+  if (!quote || quote.c === undefined || quote.c === null) throw new Error("No price data returned");
+  if (quote.c === 0) throw new Error("Market may be closed or invalid ticker");
 
   return {
-    price: quote.c,           // current price
-    change: quote.d,          // change
-    changePercent: quote.dp,  // change percent
-    high: quote.h,            // day high
-    low: quote.l,             // day low
-    prevClose: quote.pc,      // previous close
+    price: Number(quote.c),
+    change: Number(quote.d) || 0,
+    changePercent: Number(quote.dp) || 0,
+    high: Number(quote.h) || 0,
+    low: Number(quote.l) || 0,
+    prevClose: Number(quote.pc) || 0,
   };
 }
 
@@ -71,7 +69,7 @@ export default function VanguardTracker() {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchPrice(selectedFund.ticker);
+      const data = await fetchPriceFromFinnhub(selectedFund.ticker);
       setPriceData(data);
       setLastUpdated(new Date());
       const next = new Date(Date.now() + intervalVal * 60 * 1000);
@@ -155,8 +153,9 @@ export default function VanguardTracker() {
   const price = priceData?.price;
   const isUp = priceData?.change >= 0;
 
-  const sparkMax = Math.max(...priceHistory.map((p) => p.price), 1);
-  const sparkMin = Math.min(...priceHistory.map((p) => p.price), 0);
+  const safePrices = priceHistory.length > 0 ? priceHistory.map((p) => p.price) : [0];
+  const sparkMax = Math.max(...safePrices, 1);
+  const sparkMin = Math.min(...safePrices, 0);
   const sparkRange = sparkMax - sparkMin || 1;
   const W = 200, H = 48;
   const pts = priceHistory
