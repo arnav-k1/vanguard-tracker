@@ -1,0 +1,72 @@
+# How to Deploy Your Dad's Vanguard Tracker
+A step-by-step guide. Takes about 10 minutes. 100% free, no credit card needed.
+
+---
+
+## Step 1 — Get a FREE Finnhub API Key (no payment ever)
+
+Finnhub is a stock data service with a generous free plan.
+
+1. Go to https://finnhub.io
+2. Click "Get free API key" (top right)
+3. Sign up with your email — no credit card asked
+4. After signing up, your API key is shown on the dashboard
+5. It looks like: d1abc2def3gh4ijk5
+6. Copy it — you'll need it in Step 3
+
+Free plan: 60 requests/minute — way more than enough for 15-min checks.
+
+---
+
+## Step 2 — Upload the project to GitHub
+
+1. Go to https://github.com and log in
+2. Click "+" (top right) → "New repository"
+3. Name it: vanguard-tracker
+4. Leave it Public, click "Create repository"
+5. Click "uploading an existing file"
+6. Unzip the vanguard-tracker.zip on your computer first
+7. Drag ALL files and folders from inside it into the GitHub upload area
+8. Click "Commit changes"
+
+---
+
+## Step 3 — Deploy on Vercel (free hosting)
+
+1. Go to https://vercel.com
+2. Click "Sign Up" → "Continue with GitHub"
+3. Click "Add New Project"
+4. Find "vanguard-tracker" in the list, click "Import"
+5. Before clicking Deploy, find "Environment Variables" and add:
+      Name:   NEXT_PUBLIC_FINNHUB_API_KEY
+      Value:  (paste your Finnhub key from Step 1)
+6. Click "Deploy" — wait about 2 minutes
+7. You get a URL like: https://vanguard-tracker-abc123.vercel.app
+
+---
+
+## Step 4 — Share with your dad!
+
+Send him the Vercel URL. On his iPhone:
+  Safari → Share button → "Add to Home Screen" → looks just like an app!
+
+On Android:
+  Chrome → three dots menu → "Add to Home Screen"
+
+---
+
+## How alerts work
+
+- Toggle "Alerts" ON in the app
+- Enter his email or phone number
+- Set low/high price thresholds
+- When price crosses a threshold, his email or text app opens
+  with a pre-written alert message ready to send to himself
+- The page needs to stay open in a browser tab to keep checking
+
+---
+
+## Total cost: $0/month
+
+- Finnhub free plan: covers this usage easily, forever
+- Vercel free plan: covers personal projects, forever
