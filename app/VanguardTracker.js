@@ -119,17 +119,25 @@ export default function VanguardTracker() {
     if (!alertEmail) return;
     setSendingAlert(true);
     try {
-      await fetch("/api/send-alert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: alertEmail,
-          ticker: selectedFund.ticker,
-          price,
-          alertType,
-          threshold,
-        }),
-      });
+      const serviceId = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
+      const templateId = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID;
+      const publicKey = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+
+      const isLow = alertType === "low";
+      const emoji = isLow ? "🔴" : "🟢";
+      const direction = isLow ? "dropped below" : "risen above";
+
+      await window.emailjs.send(serviceId, templateId, {
+        to_email: alertEmail,
+        subject: `${emoji} Vanguard Alert: ${selectedFund.ticker} has ${direction} $${threshold}`,
+        ticker: selectedFund.ticker,
+        price: Number(price).toFixed(2),
+        threshold: Number(threshold).toFixed(2),
+        direction,
+        emoji,
+        alert_type: isLow ? "LOW PRICE ALERT" : "HIGH PRICE ALERT",
+        checked_at: new Date().toLocaleString("en-US"),
+      }, publicKey);
     } catch (e) {
       console.error("Failed to send alert email:", e);
     } finally {
