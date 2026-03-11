@@ -43,23 +43,47 @@ async function fetchPriceFromFinnhub(ticker) {
 }
 
 export default function VanguardTracker() {
-  const [selectedFund, setSelectedFund] = useState(VANGUARD_FUNDS[1]);
   const [priceData, setPriceData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [intervalVal, setIntervalVal] = useState(15);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [nextUpdate, setNextUpdate] = useState(null);
   const [countdown, setCountdown] = useState(null);
 
-  const [alertEmail, setAlertEmail] = useState("");
-  const [lowAlert, setLowAlert] = useState("");
-  const [highAlert, setHighAlert] = useState("");
-  const [alertsEnabled, setAlertsEnabled] = useState(false);
+  const [alertEmail, setAlertEmailRaw] = useState(() => {
+    try { return localStorage.getItem("vt_email") || ""; } catch { return ""; }
+  });
+  const [lowAlert, setLowAlertRaw] = useState(() => {
+    try { return localStorage.getItem("vt_low") || ""; } catch { return ""; }
+  });
+  const [highAlert, setHighAlertRaw] = useState(() => {
+    try { return localStorage.getItem("vt_high") || ""; } catch { return ""; }
+  });
+  const [alertsEnabled, setAlertsEnabledRaw] = useState(() => {
+    try { return localStorage.getItem("vt_enabled") === "true"; } catch { return false; }
+  });
+  const [selectedFundTicker, setSelectedFundTickerRaw] = useState(() => {
+    try { return localStorage.getItem("vt_ticker") || "VOO"; } catch { return "VOO"; }
+  });
+  const [intervalValStored, setIntervalValRaw] = useState(() => {
+    try { return Number(localStorage.getItem("vt_interval")) || 15; } catch { return 15; }
+  });
   const [alertHistory, setAlertHistory] = useState([]);
   const [sentAlerts, setSentAlerts] = useState({ low: false, high: false });
   const [sendingAlert, setSendingAlert] = useState(false);
   const [priceHistory, setPriceHistory] = useState([]);
+
+  // Persisting setters
+  function setAlertEmail(v) { setAlertEmailRaw(v); try { localStorage.setItem("vt_email", v); } catch {} }
+  function setLowAlert(v) { setLowAlertRaw(v); try { localStorage.setItem("vt_low", v); } catch {} }
+  function setHighAlert(v) { setHighAlertRaw(v); try { localStorage.setItem("vt_high", v); } catch {} }
+  function setAlertsEnabled(v) { setAlertsEnabledRaw(v); try { localStorage.setItem("vt_enabled", String(v)); } catch {} }
+  function setSelectedFund(fund) { setSelectedFundTickerRaw(fund.ticker); try { localStorage.setItem("vt_ticker", fund.ticker); } catch {} }
+  function setIntervalVal(v) { setIntervalValRaw(v); try { localStorage.setItem("vt_interval", String(v)); } catch {} }
+
+  // Derived values
+  const selectedFund = VANGUARD_FUNDS.find(f => f.ticker === selectedFundTicker) || VANGUARD_FUNDS[1];
+  const intervalVal = intervalValStored;
 
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
