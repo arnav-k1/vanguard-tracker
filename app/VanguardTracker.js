@@ -53,13 +53,12 @@ export default function VanguardTracker() {
   const [countdown, setCountdown] = useState(null);
 
   const [alertEmail, setAlertEmail] = useState("");
-  const [alertPhone, setAlertPhone] = useState("");
   const [lowAlert, setLowAlert] = useState("");
   const [highAlert, setHighAlert] = useState("");
-  const [alertMethod, setAlertMethod] = useState("email");
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [alertHistory, setAlertHistory] = useState([]);
   const [sentAlerts, setSentAlerts] = useState({ low: false, high: false });
+  const [sendingAlert, setSendingAlert] = useState(false);
   const [priceHistory, setPriceHistory] = useState([]);
 
   const timerRef = useRef(null);
@@ -96,7 +95,7 @@ export default function VanguardTracker() {
     if (lowAlert && price <= parseFloat(lowAlert) && !sentAlerts.low) {
       const msg = `🔴 ${selectedFund.ticker} dropped to $${price.toFixed(2)} — below your $${lowAlert} alert`;
       newHistory.push({ type: "low", msg, time: new Date().toLocaleTimeString() });
-      triggerAlert(msg);
+      sendEmailAlert("low", price, lowAlert);
       setSentAlerts((s) => ({ ...s, low: true }));
     } else if (lowAlert && price > parseFloat(lowAlert)) {
       setSentAlerts((s) => ({ ...s, low: false }));
@@ -105,7 +104,7 @@ export default function VanguardTracker() {
     if (highAlert && price >= parseFloat(highAlert) && !sentAlerts.high) {
       const msg = `🟢 ${selectedFund.ticker} rose to $${price.toFixed(2)} — above your $${highAlert} alert`;
       newHistory.push({ type: "high", msg, time: new Date().toLocaleTimeString() });
-      triggerAlert(msg);
+      sendEmailAlert("high", price, highAlert);
       setSentAlerts((s) => ({ ...s, high: true }));
     } else if (highAlert && price < parseFloat(highAlert)) {
       setSentAlerts((s) => ({ ...s, high: false }));
@@ -116,13 +115,25 @@ export default function VanguardTracker() {
     }
   }, [priceData]);
 
-  function triggerAlert(message) {
-    if (alertMethod === "email" && alertEmail) {
-      const subject = encodeURIComponent(`Vanguard Alert: ${selectedFund.ticker}`);
-      const body = encodeURIComponent(message + `\n\nChecked at: ${new Date().toLocaleString()}`);
-      window.open(`mailto:${alertEmail}?subject=${subject}&body=${body}`, "_blank");
-    } else if (alertMethod === "sms" && alertPhone) {
-      window.open(`sms:${alertPhone}?body=${encodeURIComponent(message)}`, "_blank");
+  async function sendEmailAlert(alertType, price, threshold) {
+    if (!alertEmail) return;
+    setSendingAlert(true);
+    try {
+      await fetch("/api/send-alert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: alertEmail,
+          ticker: selectedFund.ticker,
+          price,
+          alertType,
+          threshold,
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to send alert email:", e);
+    } finally {
+      setSendingAlert(false);
     }
   }
 
@@ -272,7 +283,7 @@ export default function VanguardTracker() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
-              {alertsEnabled && (alertEmail || alertPhone) && (lowAlert || highAlert) && (
+              {alertsEnabled && alertEmail && (lowAlert || highAlert) && (
                 <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(201,168,76,0.12)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 20, padding: "4px 12px", fontSize: 12, color: "#c9a84c", fontFamily: "'Source Sans 3', sans-serif" }}>
                   🔔 Alerts Active
                 </div>
@@ -319,44 +330,50 @@ export default function VanguardTracker() {
           </div>
 
           <div style={{ opacity: alertsEnabled ? 1 : 0.4, transition: "opacity 0.3s", pointerEvents: alertsEnabled ? "auto" : "none" }}>
-            <div style={{ display: "flex", gap: 4, marginBottom: 16, background: "rgba(255,255,255,0.04)", borderRadius: 8, padding: 4 }}>
-              <button className={`tab-btn ${alertMethod === "email" ? "active" : ""}`} style={{ flex: 1 }} onClick={() => setAlertMethod("email")}>✉ Email</button>
-              <button className={`tab-btn ${alertMethod === "sms" ? "active" : ""}`} style={{ flex: 1 }} onClick={() => setAlertMethod("sms")}>💬 Text</button>
-            </div>
 
-            {alertMethod === "email" ? (
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, color: "#6b7280", fontFamily: "'Source Sans 3', sans-serif", display: "block", marginBottom: 6 }}>Email Address</label>
-                <input className="input-field" type="email" placeholder="dad@email.com" value={alertEmail} onChange={(e) => setAlertEmail(e.target.value)} />
-              </div>
-            ) : (
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: 12, color: "#6b7280", fontFamily: "'Source Sans 3', sans-serif", display: "block", marginBottom: 6 }}>Phone Number</label>
-                <input className="input-field" type="tel" placeholder="+1 555 000 0000" value={alertPhone} onChange={(e) => setAlertPhone(e.target.value)} />
-              </div>
-            )}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 12, color: "#6b7280", fontFamily: "'Source Sans 3', sans-serif", display: "block", marginBottom: 6 }}>✉ Send alerts to this email</label>
+              <input
+                className="input-field"
+                type="email"
+                placeholder="dad@email.com"
+                value={alertEmail}
+                onChange={(e) => setAlertEmail(e.target.value)}
+              />
+              {alertEmail && (
+                <p style={{ margin: "6px 0 0", fontSize: 11, color: "#4a5568", fontFamily: "'Source Sans 3', sans-serif" }}>
+                  Alerts will be sent automatically — no action needed.
+                </p>
+              )}
+            </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
               <div>
-                <label style={{ fontSize: 12, color: "#ef4444", fontFamily: "'Source Sans 3', sans-serif", display: "block", marginBottom: 6 }}>▼ Alert Below ($)</label>
+                <label style={{ fontSize: 12, color: "#ef4444", fontFamily: "'Source Sans 3', sans-serif", display: "block", marginBottom: 6 }}>▼ Alert if price drops below ($)</label>
                 <input className="input-field" type="number" placeholder="e.g. 240.00" value={lowAlert} onChange={(e) => setLowAlert(e.target.value)} />
               </div>
               <div>
-                <label style={{ fontSize: 12, color: "#22c55e", fontFamily: "'Source Sans 3', sans-serif", display: "block", marginBottom: 6 }}>▲ Alert Above ($)</label>
+                <label style={{ fontSize: 12, color: "#22c55e", fontFamily: "'Source Sans 3', sans-serif", display: "block", marginBottom: 6 }}>▲ Alert if price rises above ($)</label>
                 <input className="input-field" type="number" placeholder="e.g. 260.00" value={highAlert} onChange={(e) => setHighAlert(e.target.value)} />
               </div>
             </div>
+
+            {sendingAlert && (
+              <div style={{ background: "rgba(201,168,76,0.08)", border: "1px solid rgba(201,168,76,0.2)", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#c9a84c", fontFamily: "'Source Sans 3', sans-serif", marginBottom: 12 }} className="pulse">
+                📨 Sending alert email...
+              </div>
+            )}
 
             {price && (lowAlert || highAlert) && (
               <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: 10, padding: "12px 14px", fontSize: 12, fontFamily: "'Source Sans 3', sans-serif" }}>
                 {lowAlert && (
                   <div style={{ color: price <= parseFloat(lowAlert) ? "#ef4444" : "#6b7280", marginBottom: 4 }}>
-                    {price <= parseFloat(lowAlert) ? "🔴 TRIGGERED" : "✓ OK"} — Low at ${parseFloat(lowAlert).toFixed(2)}
+                    {price <= parseFloat(lowAlert) ? "🔴 TRIGGERED" : "✓ OK"} — Low threshold: ${parseFloat(lowAlert).toFixed(2)}
                   </div>
                 )}
                 {highAlert && (
                   <div style={{ color: price >= parseFloat(highAlert) ? "#22c55e" : "#6b7280" }}>
-                    {price >= parseFloat(highAlert) ? "🟢 TRIGGERED" : "✓ OK"} — High at ${parseFloat(highAlert).toFixed(2)}
+                    {price >= parseFloat(highAlert) ? "🟢 TRIGGERED" : "✓ OK"} — High threshold: ${parseFloat(highAlert).toFixed(2)}
                   </div>
                 )}
               </div>
